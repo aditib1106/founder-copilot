@@ -25,6 +25,60 @@ export function IdeaInput({
 }: IdeaInputProps) {
   const canGenerate = idea.trim().length > 10 && !isLoading;
 
+  const pillClassName =
+    "rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-left text-xs text-zinc-400 transition hover:border-emerald-500/30 hover:bg-emerald-500/5 hover:text-zinc-200 disabled:opacity-50 sm:text-sm";
+
+  function ExamplePromptRows({
+    isLoading: loading,
+    onSelect,
+  }: {
+    isLoading: boolean;
+    onSelect: (value: string) => void;
+  }) {
+    const renderPill = (prompt: (typeof EXAMPLE_PROMPTS)[number]) => (
+      <button
+        key={prompt}
+        type="button"
+        onClick={() => onSelect(prompt)}
+        disabled={loading}
+        className={pillClassName}
+      >
+        {prompt.length > 48 ? `${prompt.slice(0, 48)}…` : prompt}
+      </button>
+    );
+
+    const mobileRows = [
+      [0, 1],
+      [2, 3],
+      [4],
+    ] as const;
+    const desktopRows = [
+      [0, 1, 2],
+      [3, 4],
+    ] as const;
+
+    const rowClassName = "flex max-w-3xl flex-wrap justify-center gap-2";
+
+    return (
+      <>
+        <div className="mx-auto flex flex-col items-center gap-2 md:hidden">
+          {mobileRows.map((indices, rowIndex) => (
+            <div key={rowIndex} className={rowClassName}>
+              {indices.map((i) => renderPill(EXAMPLE_PROMPTS[i]))}
+            </div>
+          ))}
+        </div>
+        <div className="mx-auto hidden flex-col items-center gap-2 md:flex">
+          {desktopRows.map((indices, rowIndex) => (
+            <div key={rowIndex} className={rowClassName}>
+              {indices.map((i) => renderPill(EXAMPLE_PROMPTS[i]))}
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
+
   return (
     <section
       id="how-it-works"
@@ -78,19 +132,10 @@ export function IdeaInput({
         <p className="mb-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-500">
           Try an example
         </p>
-        <div className="flex flex-wrap justify-center gap-2">
-          {EXAMPLE_PROMPTS.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => onIdeaChange(prompt)}
-              disabled={isLoading}
-              className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-left text-xs text-zinc-400 transition hover:border-emerald-500/30 hover:bg-emerald-500/5 hover:text-zinc-200 disabled:opacity-50 sm:text-sm"
-            >
-              {prompt.length > 48 ? `${prompt.slice(0, 48)}…` : prompt}
-            </button>
-          ))}
-        </div>
+        <ExamplePromptRows
+          isLoading={isLoading}
+          onSelect={onIdeaChange}
+        />
       </div>
     </section>
   );

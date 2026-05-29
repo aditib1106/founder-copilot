@@ -1,9 +1,9 @@
 export const EXAMPLE_PROMPTS = [
-  "AI copilot that writes cold emails for B2B sales teams",
-  "Marketplace connecting freelance pharmacists with rural clinics",
-  "Subscription box for dog owners who want vet-grade supplements",
-  "Notion plugin that auto-generates investor update decks",
-  "Uber for on-demand industrial equipment maintenance",
+  "An interview copilot that still works when the company disables transcription, note-taking, and every feature you were relying on.",
+  "An app that tells founders whether their startup idea is secretly just a Google Sheet with anxiety.",
+  "A startup that helps founders figure out if they need therapy or a pivot.",
+  "A Chrome extension that tells you whether an email needed to be a meeting.",
+  "An AI that turns LinkedIn humblebrags into plain English.",
 ] as const;
 
 export const LOADING_STEPS = [
