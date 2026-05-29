@@ -1,11 +1,14 @@
 import type { GenerateOptions, GenerateResponse } from "@/lib/types";
+import {
+  generateWithAnthropic,
+  isAnthropicConfigured,
+} from "./anthropic";
 import { generateMockContent } from "./mock";
 import { buildSections } from "./section-meta";
-import { generateWithOpenAI, isOpenAIConfigured } from "./openai";
 
 /**
  * Main generation entry point.
- * Uses OpenAI when OPENAI_API_KEY is set; otherwise falls back to mock.
+ * Uses Anthropic when ANTHROPIC_API_KEY is set; otherwise falls back to mock.
  */
 export async function generatePlan(
   idea: string,
@@ -13,11 +16,11 @@ export async function generatePlan(
 ): Promise<GenerateResponse> {
   const brutalityMode = Boolean(options.brutalityMode);
 
-  if (isOpenAIConfigured()) {
-    const content = await generateWithOpenAI(idea, brutalityMode);
+  if (isAnthropicConfigured()) {
+    const content = await generateWithAnthropic(idea, brutalityMode);
     return {
       sections: buildSections(content, { brutalityMode }),
-      source: "openai",
+      source: "anthropic",
       brutalityMode,
     };
   }
@@ -30,4 +33,4 @@ export async function generatePlan(
   };
 }
 
-export { isOpenAIConfigured };
+export { isAnthropicConfigured };

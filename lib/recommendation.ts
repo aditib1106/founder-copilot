@@ -40,7 +40,7 @@ export function getVerdictFromScore(
 
 /**
  * Maps reality score to build / validate / kill.
- * Same thresholds in all modes — brutality affects copy elsewhere, not the bands.
+ * Rationale tone matches the score band — no defaulting to validate.
  */
 export function getRecommendation(realityScore: number): Recommendation {
   const verdict = getVerdictFromScore(realityScore);
@@ -52,9 +52,9 @@ export function getRecommendation(realityScore: number): Recommendation {
   };
 
   const rationales: Record<RecommendationVerdict, string> = {
-    build: `~${realityScore}% estimated odds — unusually strong for an early idea. You likely have real pain, a plausible wedge, or early pull. Still ship small and prove retention, not slide decks.`,
-    validate: `~${realityScore}% estimated odds — right where most ideas land. Promising enough to test, not proven enough to go all-in. Run a tight validation sprint before you commit months.`,
-    kill: `~${realityScore}% estimated odds — weak on timing, differentiation, or demand signals. Don't grind on this version; pivot or pick a sharper problem.`,
+    build: `~${realityScore}% estimated odds — the analysis landed in "build" territory: real pain, plausible wedge, or early pull worth betting a focused sprint. Ship narrow; prove retention and revenue, not narrative.`,
+    validate: `~${realityScore}% estimated odds — not dead, not ready. The roast and risks leave too many open questions for a full build. Run a 2–4 week validation with explicit kill criteria before you commit a quarter.`,
+    kill: `~${realityScore}% estimated odds — the analysis surfaced structural, regulatory, or market headwinds that outweigh the upside. Kill this version or pivot sharply; don't mistake a clever story for traction.`,
   };
 
   return {

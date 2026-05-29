@@ -14,7 +14,7 @@ type OutputGridProps = {
 
 const SOURCE_LABEL: Record<GenerateSource, string> = {
   mock: "Mock analysis",
-  openai: "AI-generated",
+  anthropic: "AI-generated",
 };
 
 export function OutputGrid({

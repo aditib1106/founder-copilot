@@ -1,8 +1,6 @@
-import {
-  getRecommendation,
-  VERDICT_ACCENT,
-} from "@/lib/recommendation";
+import { getRecommendation, VERDICT_ACCENT } from "@/lib/recommendation";
 import type { OutputSection, SectionId } from "@/lib/types";
+import { alignContentScore } from "./align-score";
 
 type SectionMeta = Pick<
   OutputSection,
@@ -103,7 +101,7 @@ export const SECTION_META: Record<SectionId, SectionMeta> = {
   },
 };
 
-/** Raw content shape returned by OpenAI or mock generators before merging metadata. */
+/** Raw content shape returned by Anthropic or mock generators before merging metadata. */
 export type GeneratedContent = {
   problem: string;
   targetUsers: string[];
@@ -126,19 +124,20 @@ export function buildSections(
   content: GeneratedContent,
   options: BuildSectionsOptions = {}
 ): OutputSection[] {
-  const recommendation = getRecommendation(content.realityScore);
+  const aligned = alignContentScore(content);
+  const recommendation = getRecommendation(aligned.realityScore);
 
   const contentById: Record<SectionId, string | string[]> = {
-    problem: content.problem,
-    users: content.targetUsers,
-    mvp: content.mvpFeatures,
-    stories: content.userStories,
-    metrics: content.successMetrics,
-    roadmap: content.roadmap,
-    risks: content.risks,
-    roast: content.investorRoast,
-    reality: content.realityCheck,
-    validation: content.validationPlan,
+    problem: aligned.problem,
+    users: aligned.targetUsers,
+    mvp: aligned.mvpFeatures,
+    stories: aligned.userStories,
+    metrics: aligned.successMetrics,
+    roadmap: aligned.roadmap,
+    risks: aligned.risks,
+    roast: aligned.investorRoast,
+    reality: aligned.realityCheck,
+    validation: aligned.validationPlan,
     recommendation: recommendation.rationale,
   };
 
@@ -150,7 +149,7 @@ export function buildSections(
     };
 
     if (id === "reality") {
-      section.realityScore = content.realityScore;
+      section.realityScore = aligned.realityScore;
     }
 
     if (id === "recommendation") {

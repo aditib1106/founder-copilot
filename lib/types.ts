@@ -49,7 +49,7 @@ export type OutputSection = {
   weekendAnswer?: string;
 };
 
-export type GenerateSource = "mock" | "openai";
+export type GenerateSource = "mock" | "anthropic";
 
 export type GenerateResponse = {
   sections: OutputSection[];
