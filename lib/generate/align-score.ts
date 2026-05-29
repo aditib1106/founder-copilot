@@ -1,79 +1,87 @@
+import { getRecommendationLabel } from "@/lib/recommendation";
 import type { GeneratedContent } from "./section-meta";
 
-const SCORE_MIN = 8;
-const SCORE_MAX = 65;
+const SCORE_MIN = 5;
+const SCORE_MAX = 100;
 
-type SeverityRule = {
+/** Only these justify ≤15 — reserved for true kills. */
+const KILL_RULES: {
   id: string;
   patterns: RegExp[];
-  penalty: number;
-  /** Hard cap when this signal fires (lowest cap wins). */
-  cap?: number;
-};
-
-const SEVERITY_RULES: SeverityRule[] = [
+  cap: number;
+}[] = [
   {
-    id: "regulatory",
+    id: "legal_regulatory",
     patterns: [
-      /\b(legal|compliance|license|licensed|malpractice|hipaa|fda|regulat|cease and desist|tos\b|policy change|unlist|liability)\b/i,
+      /\b(illegal|unlicensed practice|malpractice|hipaa violation|fda approval required|anti-cheat|anti-cheating|bypass.*(protection|detection)|surveillance without consent)\b/i,
     ],
-    penalty: 20,
+    cap: 12,
+  },
+  {
+    id: "feature_not_company",
+    patterns: [
+      /\b(clearly (just )?a feature|not a company|weekend project with delusions|hobby not a business|wrapping gpt around)\b/i,
+    ],
     cap: 14,
   },
   {
-    id: "structural",
+    id: "no_pain",
     patterns: [
-      /\b(not a company|feature not a company|commodity|graveyard|renting positioning|chicken-and-egg|liquidity|two-sided market|classifi?eds site|not a venture|hobby not)\b/i,
+      /\b(no one (will )?pay|nobody pays|vitamin not painkiller|nice to have only|no meaningful pain|solution in search of)\b/i,
     ],
-    penalty: 16,
-    cap: 18,
+    cap: 13,
   },
   {
-    id: "market",
+    id: "tiny_market",
     patterns: [
-      /\b(shrinking|declining|consolidat|incumbent|bundle(s)? free|copy (it )?in one sprint|market'?s consolidating|eating your lunch)\b/i,
+      /\b(tiny market|market too small|TAM.*(tiny|too small)|nobody needs this at scale)\b/i,
     ],
-    penalty: 12,
-    cap: 22,
+    cap: 14,
   },
   {
-    id: "roast_fatal",
+    id: "impossible_distribution",
     patterns: [
-      /\b(i'?d pass|we'?re passing|don'?t raise|kill it|forget your name|come back when|not taking another meeting|hard no|default to no)\b/i,
+      /\b(no path to (customers|users)|impossible to reach (buyers|customers)|cannot get distribution|no way to acquire)\b/i,
     ],
-    penalty: 14,
-    cap: 16,
-  },
-  {
-    id: "distribution",
-    patterns: [
-      /\b(no distribution|no repeatable channel|no channel|no wedge|who paid you|where'?s the distribution|cac > ltv)\b/i,
-    ],
-    penalty: 10,
-  },
-  {
-    id: "kill_verdict",
-    patterns: [
-      /\b(pivot candidate|kill criterion|don'?t build|stop building|negative expected value|walk away|park this)\b/i,
-    ],
-    penalty: 8,
+    cap: 13,
   },
 ];
 
-const POSITIVE_RULES: SeverityRule[] = [
+const SOFT_NEGATIVE: {
+  id: string;
+  patterns: RegExp[];
+  penalty: number;
+}[] = [
   {
-    id: "pull",
-    patterns: [
-      /\b(prepaid|pre-paid|loi\b|customers? (who )?paid|pull from customers|repeatable channel|reference call|10k mrr|\$10k mrr)\b/i,
-    ],
-    penalty: -12,
+    id: "crowded",
+    patterns: [/\b(crowded|incumbent|commodity|graveyard of)\b/i],
+    penalty: 4,
   },
   {
-    id: "strength",
+    id: "uncertain",
+    patterns: [/\b(unproven|unclear wedge|still unproven|not proven)\b/i],
+    penalty: 3,
+  },
+];
+
+const STRONG_POSITIVE: { patterns: RegExp[]; floor: number } = {
+  patterns: [
+    /\b(pain is (real|obvious)|already spend|already paying|willingness to pay|people pay for|budget for this|clear demand|repeat purchases|strong demand)\b/i,
+    /\b(distribution path|path to customers|can sell via|founders already buy|line item|prepaid|pre-paid)\b/i,
+  ],
+  floor: 40,
+};
+
+const POSITIVE_BOOST: { patterns: RegExp[]; boost: number }[] = [
+  {
     patterns: [
-      /\b(clear wedge|unusually strong|early pull|proof someone prepaid|liquidity proof)\b/i,
+      /\b(prepaid|pre-paid|loi\b|customers? (who )?paid|pull from customers|10k mrr|\$10k mrr|renew without chasing)\b/i,
     ],
-    penalty: -6,
+    boost: 12,
+  },
+  {
+    patterns: [/\b(seriously build|unusually strong|exceptional|clear wedge)\b/i],
+    boost: 8,
   },
 ];
 
@@ -83,48 +91,56 @@ function buildCorpus(content: GeneratedContent): string {
     content.investorRoast,
     content.realityCheck,
     ...content.risks,
-  ]
-    .join(" ")
-    .toLowerCase();
+    ...content.successMetrics,
+  ].join(" ");
 }
 
 export type SeverityAnalysis = {
-  penalty: number;
+  killCap?: number;
+  softPenalty: number;
   boost: number;
-  cap?: number;
+  floor?: number;
   matched: string[];
 };
 
 export function analyzeSeverity(content: GeneratedContent): SeverityAnalysis {
   const corpus = buildCorpus(content);
-  let penalty = 0;
+  let killCap: number | undefined;
+  let softPenalty = 0;
   let boost = 0;
-  let cap: number | undefined;
+  let floor: number | undefined;
   const matched: string[] = [];
 
-  for (const rule of SEVERITY_RULES) {
+  for (const rule of KILL_RULES) {
     if (rule.patterns.some((p) => p.test(corpus))) {
-      penalty += rule.penalty;
+      matched.push(`kill:${rule.id}`);
+      killCap =
+        killCap === undefined ? rule.cap : Math.min(killCap, rule.cap);
+    }
+  }
+
+  for (const rule of SOFT_NEGATIVE) {
+    if (rule.patterns.some((p) => p.test(corpus))) {
+      softPenalty += rule.penalty;
       matched.push(rule.id);
-      if (rule.cap !== undefined) {
-        cap = cap === undefined ? rule.cap : Math.min(cap, rule.cap);
-      }
     }
   }
+  softPenalty = Math.min(softPenalty, 12);
 
-  for (const rule of POSITIVE_RULES) {
+  if (STRONG_POSITIVE.patterns.some((p) => p.test(corpus))) {
+    floor = STRONG_POSITIVE.floor;
+    matched.push("+strong_signals");
+  }
+
+  for (const rule of POSITIVE_BOOST) {
     if (rule.patterns.some((p) => p.test(corpus))) {
-      boost += Math.abs(rule.penalty);
-      matched.push(`+${rule.id}`);
+      boost += rule.boost;
+      matched.push("+boost");
     }
   }
+  boost = Math.min(boost, 18);
 
-  return {
-    penalty: Math.min(penalty, 40),
-    boost: Math.min(boost, 15),
-    cap,
-    matched,
-  };
+  return { killCap, softPenalty, boost, floor, matched };
 }
 
 function clampScore(score: number): number {
@@ -135,38 +151,85 @@ export function finalizeRealityScore(
   baseScore: number,
   content: GeneratedContent
 ): number {
-  const { penalty, boost, cap } = analyzeSeverity(content);
-  let score = baseScore - penalty + boost;
-  if (cap !== undefined) score = Math.min(score, cap);
+  const { killCap, softPenalty, boost, floor } = analyzeSeverity(content);
+  let score = baseScore - softPenalty + boost;
+
+  if (killCap !== undefined) {
+    score = Math.min(score, killCap);
+  } else if (floor !== undefined) {
+    score = Math.max(score, floor);
+  }
+
   return clampScore(score);
+}
+
+function buildWhyExplanation(
+  score: number,
+  analysis: SeverityAnalysis
+): string {
+  const label = getRecommendationLabel(score);
+  const parts: string[] = [];
+
+  if (analysis.killCap !== undefined) {
+    parts.push(
+      "we hit serious blockers (legal, weak pain, tiny market, or no path to customers)"
+    );
+  } else if (score >= 71) {
+    parts.push(
+      "pain looks obvious, buyers already spend, and distribution isn't a fantasy"
+    );
+  } else if (score >= 46) {
+    parts.push(
+      "the upside is real enough to build a narrow wedge, with risks still on the table"
+    );
+  } else if (score >= 16) {
+    parts.push(
+      "there's a thread worth pulling, but too many open questions for a full build sprint"
+    );
+  } else {
+    parts.push("the downside dominates the upside on current evidence");
+  }
+
+  if (analysis.matched.includes("+strong_signals")) {
+    parts.push("existing spending and demand showed up in the analysis");
+  }
+  if (analysis.softPenalty > 0 && !analysis.killCap) {
+    parts.push("crowded space or unproven wedge pulled the number down slightly");
+  }
+
+  return `Why ~${score}% → ${label}: ${parts.join("; ")}.`;
 }
 
 export function updateRealityCheckScore(
   realityCheck: string,
-  score: number
+  score: number,
+  whyExplanation?: string
 ): string {
-  const withoutEstimate = realityCheck
+  const stripped = realityCheck
     .replace(/\s*Estimated chance of \$1M ARR[^.]*\.?\s*/gi, "")
+    .replace(/\s*Why ~\d+%[^.]*\.\s*/gi, "")
     .trim();
 
-  const withReplacedPercent = realityCheck.replace(/~\d+%/g, `~${score}%`);
-  if (withReplacedPercent !== realityCheck) {
-    return withReplacedPercent;
-  }
+  const estimate = `Estimated chance of $1M ARR in 24 months without a distribution wedge: ~${score}%.`;
+  const why = whyExplanation ?? "";
 
-  const base =
-    withoutEstimate.length > 0 ? withoutEstimate : realityCheck.trim();
-  return `${base} Estimated chance of $1M ARR in 24 months without a clear distribution wedge: ~${score}%.`;
+  return [stripped, estimate, why].filter(Boolean).join(" ");
 }
 
-/** Align score and reality-check copy with roast, risks, and verdict tone. */
 export function alignContentScore(
   content: GeneratedContent
 ): GeneratedContent {
+  const analysis = analyzeSeverity(content);
   const realityScore = finalizeRealityScore(content.realityScore, content);
+  const why = buildWhyExplanation(realityScore, analysis);
+
   return {
     ...content,
     realityScore,
-    realityCheck: updateRealityCheckScore(content.realityCheck, realityScore),
+    realityCheck: updateRealityCheckScore(
+      content.realityCheck,
+      realityScore,
+      why
+    ),
   };
 }

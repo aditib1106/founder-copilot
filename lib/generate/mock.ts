@@ -2,15 +2,17 @@ import { alignContentScore } from "./align-score";
 import type { GeneratedContent } from "./section-meta";
 import { calibrateRealityScore } from "./score";
 const ARCHETYPE_SCORE_BIAS: Record<IdeaArchetype, number> = {
-  interview: -5,
-  "founder-validation": -3,
-  "founder-therapy": -10,
-  "email-meeting": -2,
-  linkedin: -6,
-  subscription: 0,
-  "b2b-sales": -4,
-  marketplace: -8,
-  "chrome-extension": -3,
+  interview: -2,
+  "chief-of-staff": 2,
+  "job-offer-risk": 0,
+  "founder-validation": 0,
+  "founder-therapy": -4,
+  "email-meeting": 0,
+  linkedin: -2,
+  subscription: 1,
+  "b2b-sales": 3,
+  marketplace: -3,
+  "chrome-extension": 0,
   general: 0,
 };
 
@@ -29,6 +31,8 @@ function pick<T>(items: T[], seed: number, offset = 0): T {
 
 type IdeaArchetype =
   | "interview"
+  | "chief-of-staff"
+  | "job-offer-risk"
   | "founder-validation"
   | "founder-therapy"
   | "email-meeting"
@@ -47,50 +51,58 @@ type IdeaProfile = {
 
 function detectArchetype(lower: string): IdeaArchetype {
   if (
-    /interview|hiring|recruit|transcri|note-taking|scorecard|candidate/.test(
+    /interview|hiring|recruit|transcri|note-taking|scorecard|candidate|anti-cheat/.test(
       lower
-    ) &&
-    /copilot|disable|company|feature/.test(lower)
+    )
   ) {
     return "interview";
   }
   if (
-    /therapy|pivot|founder.*(mental|burnout|anxiety)/.test(lower) ||
-    (/founder/.test(lower) && /therapy|pivot/.test(lower))
+    /chief of staff|slack.*(email|meeting)|watches slack|forgot to do/.test(
+      lower
+    )
   ) {
-    return "founder-therapy";
+    return "chief-of-staff";
   }
   if (
-    /google sheet|startup idea|founder.*idea|idea is|validate.*idea/.test(
+    /job offer|accept a job|before you join|startup.*die|likely.*die/.test(
       lower
     ) &&
-    /founder|startup/.test(lower)
+    /extension|browser/.test(lower)
+  ) {
+    return "job-offer-risk";
+  }
+  if (
+    /google sheet|sheet with anxiety|startup idea is secretly/.test(lower)
   ) {
     return "founder-validation";
   }
-  if (
-    /chrome extension|extension/.test(lower) ||
-    (/email/.test(lower) && /meeting/.test(lower))
-  ) {
-    return "email-meeting";
-  }
-  if (/linkedin|humblebrag|plain english|social sell/.test(lower)) {
+  if (/linkedin|humblebrag|plain english/.test(lower)) {
     return "linkedin";
   }
-  if (/marketplace|two-sided|uber for|matching|connect.*buyer/.test(lower)) {
-    return "marketplace";
-  }
   if (
-    /subscription|churn|retention|monthly box|recurring consumer/.test(lower)
+    /subscription|churn|retention|monthly box|dog owner|vet-grade|supplement/.test(
+      lower
+    )
   ) {
     return "subscription";
   }
   if (
-    /b2b|outbound|cold email|sales team|sdr|crm|enterprise|procurement/.test(
-      lower
-    )
+    /salesforce|crm|sales call|outbound|cold email|sdr|b2b/.test(lower)
   ) {
     return "b2b-sales";
+  }
+  if (/email/.test(lower) && /meeting/.test(lower)) {
+    return "email-meeting";
+  }
+  if (/marketplace|two-sided|uber for|matching/.test(lower)) {
+    return "marketplace";
+  }
+  if (
+    /therapy|pivot/.test(lower) &&
+    /founder/.test(lower)
+  ) {
+    return "founder-therapy";
   }
   if (/chrome extension|browser extension/.test(lower)) {
     return "chrome-extension";
@@ -111,8 +123,12 @@ function profileIdea(idea: string): IdeaProfile {
 type SectionBuilder = (profile: IdeaProfile) => Omit<GeneratedContent, "realityScore">;
 
 const ARCHETYPE_BUILDERS: Record<IdeaArchetype, SectionBuilder> = {
-  interview: (p) => ({
-    problem: `${p.idea} — the real pain isn't "better notes," it's that legal and IT will keep shutting off your features the moment you look successful. Hiring teams still need comparable signal across candidates when recording, transcription, and third-party bots are banned. Without that, debriefs become vibes and bad hires get blamed on the recruiter.`,
+  interview: (p) => {
+    const antiCheat = /anti-cheat|bypass|protection/i.test(p.idea);
+    return {
+    problem: antiCheat
+      ? `${p.idea} — recruiters do need better debriefs, but anything that looks like bypassing anti-cheating or surveillance rules is a legal minefield before it's a product. The pain is real; the compliance story is the whole company.`
+      : `${p.idea} — hiring teams actually need comparable signal when IT kills recording and transcription. That's a real budget line (bad hires, agency fees, HM time). The catch: legal and security will fight you the second you look like you're smuggling data out of interviews.`,
     targetUsers: [
       "In-house recruiters running 8–20 structured interviews per week at 200–2,000 person companies",
       "Hiring managers who own debriefs but refuse another tab in Greenhouse",
@@ -148,28 +164,126 @@ const ARCHETYPE_BUILDERS: Record<IdeaArchetype, SectionBuilder> = {
       "Risk: candidates complain — employer brand damage kills rollout",
       "Risk: you're a feature inside Metaview/HireVue's enterprise bundle within 18 months",
     ],
-    investorRoast: pick(
-      [
-        `"So you're building shadow infrastructure for interviews the company explicitly doesn't want recorded? Legal is going to love you. Where's the LOI from a Head of Talent who'll stake their job on this?"`,
-        `"Every recruiting platform is one enterprise deal away from copying your rubric UI. You're selling pickaxes in a market that's consolidating around ATS incumbents."`,
-        `"Show me one company that disabled transcription and still paid you — not a recruiter's personal expense report."`,
-      ],
-      p.seed
-    ),
-    realityCheck: pick(
-      [
-        "Real pain in regulated hiring loops, but procurement moves slow and pilots die in legal review. Worth validating with 3 Heads of Talent who already ban recording — not generic HR tech Twitter.",
-        "The wedge is compliance-friendly signal, not AI magic. If you can't name the policy clause that breaks incumbents, you're selling convenience.",
-      ],
-      p.seed,
-      1
-    ),
+    investorRoast: antiCheat
+      ? `"Congrats, you invented 'Zoom but the compliance team hates you.' I'll tweet the deck for the memes, not the check."`
+      : pick(
+          [
+            `"Your pitch is 'Greenhouse, but we type faster.' I've got 200 apps in my inbox that say that. Bring me one Head of Talent who disabled recording and still paid you."`,
+            `"Legal will treat you like malware with a pricing page. Fun roast, scary term sheet."`,
+          ],
+          p.seed
+        ),
+    realityCheck: antiCheat
+      ? "Bypassing interview protections is the kind of idea that gets a cease-and-desist before it gets ARR. Validate only if counsel signs off in writing — otherwise this is a kill."
+      : pick(
+          [
+            "There's real pain when tools get disabled — teams still debrief on vibes. Worth testing with recruiters who already work under no-recording rules, but legal review will pace your revenue.",
+            "Could work as compliance-friendly scorecards, not shadow recording. Distribution is HR leaders who already feel post-interview chaos.",
+          ],
+          p.seed,
+          1
+        ),
     validationPlan: [
       "Get 8 recruiters to forward you their 'tools disabled' email from IT — that's your ICP filter",
       "Run 5 live interviews where you only take notes by hand + your product; compare HM satisfaction to their norm",
       "Ask: \"What did you pay for Metaview, BrightHire, or interview prep last year?\"",
       "Pre-sell a 30-day pilot to one eng hiring loop — success = they renew without you chasing",
       "Kill if legal blocks 2 pilots in a row for the same reason (recording, storage, or candidate consent)",
+    ],
+  };
+  },
+
+  "chief-of-staff": (p) => ({
+    problem: `${p.idea} — founders already drown in Slack, email, and calendar debris; the pain is forgetting the follow-through, not lacking another dashboard. Teams pay for chiefs of staff, EAs, and tools like Notion reminders — so budget exists. The hard part: trust, privacy, and not becoming Clippy with a YC bio.`,
+    targetUsers: [
+      "Seed founders with 3–15 people and no EA yet",
+      "COOs at startups where the CEO is the bottleneck on every decision",
+      "Founders who live in Slack but still drop balls on fundraising, hiring, and customer follow-ups",
+      "NOT: enterprises that require on-prem and 6-month security reviews on day one",
+    ],
+    mvpFeatures: [
+      "Read-only Slack + Gmail connectors; daily \"you dropped these 5 threads\" digest",
+      "Meeting summary → action items with owners (no auto-send without approval)",
+      "Founder-only snooze: \"remind me when investor X goes quiet for 3 days\"",
+    ],
+    userStories: [
+      "As a founder, I want a 7am list of promises I made yesterday so I don't ghost investors.",
+      "As a co-founder, I want shared accountability without another project management cult.",
+      "As a CEO, I want prep for board week without re-reading 400 Slack threads.",
+    ],
+    successMetrics: [
+      "North star: actions marked done within 48h of surfacing",
+      "Retention: 5+ digests opened per week for 4 weeks",
+      "Willingness to pay: $49–99/mo founder tier with <10% churn month 2",
+      "Trust: zero incidents of misfired external messages in pilot",
+    ],
+    roadmap: [
+      "Week 1: 10 founders forward inboxes manually — you send the digest by hand",
+      "Week 2: Slack read-only OAuth + one-click approve actions",
+      "Week 3: Charge $49; measure balls dropped vs. baseline week",
+      "Week 4: Add calendar context; kill features that founders ignore",
+    ],
+    risks: [
+      "Assumption: founders grant inbox access — many won't",
+      "Risk: Slack or Google changes API terms",
+      "Risk: one wrong auto-send destroys trust forever",
+      "Risk: incumbents (Notion AI, Superhuman) add \"founder chief\" templates",
+    ],
+    investorRoast: `"You're building a chief of staff that reads everything and apologizes later. My DMs are already a cemetery of 'AI executive assistant' launches — screenshot this roast, not my term sheet."`,
+    realityCheck:
+      "Pain is obvious and founders already spend on EAs and chaos tax. Distribution is founder Twitter and accelerators — crowded, but plausible. Score hinges on trust and retention, not novelty.",
+    validationPlan: [
+      "Run manual digests for 8 founders — they must reply \"caught something I missed\"",
+      "Ask what they pay EA/tools today — need a number, not vibes",
+      "Pre-sell $49/mo before auto-actions ship",
+      "Kill if <4 of 8 still want week 3 digest",
+    ],
+  }),
+
+  "job-offer-risk": (p) => ({
+    problem: `${p.idea} — candidates want the truth before they join; Glassdoor is stale and the recruiter is literally paid to lie. A sharp take on runway, churn, and founder drama could spread. Monetization is fuzzy (candidates don't pay much), but virality and recruiting partnerships exist.`,
+    targetUsers: [
+      "Senior engineers comparing two startup offers",
+      "PMs leaving Big Tech who want signal beyond the recruiter deck",
+      "Recruiters who want to pre-qualify fit (controversial)",
+      "NOT: new grads optimizing for brand names only",
+    ],
+    mvpFeatures: [
+      "Paste offer details + company → risk report (runway, layoff news, glassdoor drift)",
+      "Chrome overlay on Greenhouse/LinkedIn job pages",
+      "Shareable \"offer autopsy\" card (viral loop)",
+    ],
+    userStories: [
+      "As a candidate, I want to know if the startup is default-alive before I sign.",
+      "As a founder hiring, I want fewer surprises when candidates ghost after reading Reddit.",
+      "As a user, I want one meme-quality line I can send the group chat.",
+    ],
+    successMetrics: [
+      "North star: reports generated per active user per week",
+      "Virality: 20% share report externally",
+      "Revenue: $19 one-off report or B2B recruiter seats",
+      "Accuracy: users rate \"would have changed decision\" >30%",
+    ],
+    roadmap: [
+      "Week 1: Manually research 15 companies; publish teardown threads",
+      "Week 2: Ship paste-box MVP; no extension",
+      "Week 3: Chrome extension on job pages; track shares",
+      "Week 4: Pitch recruiting firms on white-label reports",
+    ],
+    risks: [
+      "Assumption: candidates pay — many want free tea only",
+      "Risk: libel if you're wrong about runway",
+      "Risk: founders attack you for hurting hiring",
+      "Risk: data sources stale → wrong advice",
+    ],
+    investorRoast: `"You're the Glassdoor for people who still think they're joining Stripe. Fun product, brutal liability, and candidates won't subscribe."`,
+    realityCheck:
+      "Memorable and shareable; pain is real for candidates. Business model and legal risk keep this in validate territory unless you nail data sources and a paying channel.",
+    validationPlan: [
+      "Ship 20 manual reports; need 500 waitlist signups",
+      "Ask users: \"Would you pay $19 before signing?\"",
+      "Talk to one recruiting agency about sponsored reports",
+      "Kill if share rate <10% after 100 reports",
     ],
   }),
 
@@ -418,7 +532,7 @@ const ARCHETYPE_BUILDERS: Record<IdeaArchetype, SectionBuilder> = {
   }),
 
   subscription: (p) => ({
-    problem: `${p.idea} — subscription businesses die in month two, not month one. Acquisition is a party; retention is doing dishes. If you're not obsessed with why people cancel after the third box, third bill, or third login, you're building a Shopify theme around churn instead of fixing churn.`,
+    problem: `${p.idea} — dog parents already spend silly money on health and treats; vet-grade positioning can mean real repeat buying if the product delivers. Subscription boxes live or die on month-two retention, not launch-day Twitter. The pain is trust (is this actually vet-grade?) and churn, not lack of dog owners.`,
     targetUsers: [
       "DTC founders with 500–5,000 active subscribers and rising cancel rates",
       "Subscription box founders whose COGS eat revival campaigns",
@@ -479,7 +593,7 @@ const ARCHETYPE_BUILDERS: Record<IdeaArchetype, SectionBuilder> = {
   }),
 
   "b2b-sales": (p) => ({
-    problem: `${p.idea} — B2B buyers ghost because sellers sound identical. The pain is pipeline theater: more emails, same reply rate. Without a channel you own (community, data, niche vertical), you're another line item fighting Apollo, Outreach, and the intern with a spreadsheet.`,
+    problem: `${p.idea} — sales teams already pay for CRM hygiene and call intelligence; updating Salesforce after calls is a tax everyone recognizes. Pain is obvious, budget exists (Gong, Chorus, CRM add-ons). You still have to beat incumbents and prove reps actually use it daily.`,
     targetUsers: [
       "Founders selling $5k–$50k ACV deals themselves before first sales hire",
       "5-person outbound teams at Series A SaaS with flat reply rates",
@@ -736,16 +850,9 @@ function buildSections(profile: IdeaProfile): GeneratedContent {
     ARCHETYPE_SCORE_BIAS[profile.archetype]
   );
 
-  const verdicts = [
-    "Proceed with caution",
-    "Promising but unproven",
-    "High risk, niche upside",
-    "Worth a tight validation sprint",
-  ] as const;
-
   return {
     ...sections,
-    realityCheck: `${sections.realityCheck} Estimated chance of $1M ARR in 24 months without a clear distribution wedge: ~${realityScore}%.`,
+    realityCheck: sections.realityCheck,
     realityScore,
   };
 }

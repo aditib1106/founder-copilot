@@ -25,9 +25,15 @@ const VERDICT_STYLES: Record<
     glow: "from-rose-500/20",
     label: "text-rose-300",
   },
+  "serious-build": {
+    badge: "bg-sky-500/20 text-sky-300 ring-sky-500/30",
+    glow: "from-sky-500/20",
+    label: "text-sky-300",
+  },
 };
 
 function verdictKey(label: string): RecommendationVerdict {
+  if (label === "Seriously build this") return "serious-build";
   if (label === "Build it") return "build";
   if (label === "Kill it") return "kill";
   return "validate";

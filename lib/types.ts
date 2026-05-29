@@ -11,7 +11,7 @@ export type SectionIconType =
   | "validation"
   | "recommendation";
 
-export type RecommendationVerdict = "build" | "validate" | "kill";
+export type RecommendationVerdict = "kill" | "validate" | "build" | "serious-build";
 
 export type SectionAccent =
   | "emerald"

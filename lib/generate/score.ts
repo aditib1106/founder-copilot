@@ -1,7 +1,6 @@
 /**
  * Seed-based score before content alignment.
- * Spread across kill / validate / build — no default pile-up in validate.
- * ~32% kill (8–20), ~33% validate (21–50), ~35% build (51–65).
+ * ~12% kill, ~58% validate, ~25% build, ~5% seriously build.
  */
 export function calibrateRealityScore(
   seed: number,
@@ -14,16 +13,19 @@ export function calibrateRealityScore(
   let score: number;
 
   if (brutalityMode) {
-    if (bucket < 38) score = 8 + (seed % 13);
-    else if (bucket < 72) score = 20 + ((seed + jitter) % 28);
-    else score = 49 + (seed % 14);
-  } else if (bucket < 32) {
-    score = 8 + (seed % 13);
-  } else if (bucket < 65) {
-    score = 21 + ((seed + jitter) % 30);
+    if (bucket < 18) score = 8 + (seed % 8);
+    else if (bucket < 76) score = 18 + ((seed + jitter) % 26);
+    else if (bucket < 94) score = 46 + (seed % 18);
+    else score = 71 + (seed % 12);
+  } else if (bucket < 12) {
+    score = 9 + (seed % 7);
+  } else if (bucket < 70) {
+    score = 22 + ((seed + jitter) % 22);
+  } else if (bucket < 95) {
+    score = 48 + (seed % 20);
   } else {
-    score = 51 + (seed % 15);
+    score = 72 + (seed % 14);
   }
 
-  return Math.min(65, Math.max(8, score + archetypeBias));
+  return Math.min(85, Math.max(8, score + archetypeBias));
 }

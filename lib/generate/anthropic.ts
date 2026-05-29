@@ -1,22 +1,25 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { SCORE_GUIDELINES, TONE_GUIDELINES } from "./prompt-tone";
 import type { GeneratedContent } from "./section-meta";
 
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
-const BASE_SYSTEM_PROMPT = `You are Founder Copilot, a brutally honest startup advisor for YC-style founders.
+const BASE_SYSTEM_PROMPT = `You are Founder Copilot — a skeptical founder friend, not a consultant.
 Given a startup idea, produce structured analysis that helps founders decide whether to build it.
-Be specific to the idea. Be skeptical but constructive. Investor roast should sound like a real VC partner.
+
+${TONE_GUIDELINES}
+
+${SCORE_GUIDELINES}
+
 Include one "NOT:" anti-persona line in targetUsers.
-realityScore must be an integer 8-65: estimated % chance of $1M ARR in 24 months without a distribution wedge. The score MUST match the severity of investorRoast, risks, and realityCheck — if you cite structural flaws, regulatory risk, shrinking markets, or missing distribution, score ≤20 and recommend kill in realityCheck prose. Use 21-50 only when the idea is genuinely uncertain (worth testing, not building yet). Use 51+ only with clear pull, wedge, or paid demand. Do not inflate scores to be polite.
 Respond with valid JSON only — no markdown fences, no commentary outside the JSON object.`;
 
 const BRUTALITY_ADDENDUM = `
 
 BRUTALITY MODE IS ON:
-- investorRoast: significantly harsher — dismissive, memorable, no softening. Sound like a partner who has zero fear of offending the founder.
-- realityCheck: deeply skeptical; default toward "don't build" unless evidence is overwhelming.
-- realityScore: must align with harsh roast — structural/regulatory/market kills should be ≤20. Do not cluster everything in 21-50.
-- validationPlan: every step must focus on DISPROVING the idea, surfacing kill criteria, and finding reasons NOT to build. Do not encourage or motivate.`;
+- investorRoast: harsher and funnier — still specific, still screenshot-worthy.
+- realityCheck: more skeptical prose, but still explain WHY the score fits; do not auto-score everything ≤15.
+- validationPlan: focus on disproving the idea, but include one "what would change your mind" step.`;
 
 const JSON_SCHEMA_DESCRIPTION = `Return valid JSON only with this exact shape:
 {
@@ -38,10 +41,9 @@ export function isAnthropicConfigured(): boolean {
 }
 
 function clampScore(score: number): number {
-  return Math.min(65, Math.max(8, Math.round(score)));
+  return Math.min(100, Math.max(5, Math.round(score)));
 }
 
-/** Strip optional markdown code fences from model output. */
 function extractJsonPayload(raw: string): string {
   const trimmed = raw.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)```$/i);
@@ -76,10 +78,6 @@ function parseGeneratedContent(raw: string): GeneratedContent {
   };
 }
 
-/**
- * Generate plan content via Anthropic Messages API.
- * Requires ANTHROPIC_API_KEY. Optional ANTHROPIC_MODEL.
- */
 export async function generateWithAnthropic(
   idea: string,
   brutalityMode = false
@@ -98,7 +96,7 @@ export async function generateWithAnthropic(
   const message = await client.messages.create({
     model,
     max_tokens: 4096,
-    temperature: brutalityMode ? 0.85 : 0.7,
+    temperature: brutalityMode ? 0.8 : 0.65,
     system: systemPrompt,
     messages: [
       {

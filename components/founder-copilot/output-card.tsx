@@ -45,6 +45,7 @@ const accentStyles = {
 } as const;
 
 const VERDICT_GLYPH: Record<RecommendationVerdict, string> = {
+  "serious-build": "★",
   build: "↑",
   validate: "→",
   kill: "×",

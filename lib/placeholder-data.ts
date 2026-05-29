@@ -1,8 +1,8 @@
 export const EXAMPLE_PROMPTS = [
-  "An interview copilot that still works when the company disables transcription, note-taking, and every feature you were relying on.",
+  "An interview copilot that still works when the company disables transcription and note-taking.",
+  "An AI chief of staff that watches Slack, email, and meetings and tells founders what they forgot to do.",
+  "A browser extension that tells you how likely a startup is to die before you accept a job offer.",
   "An app that tells founders whether their startup idea is secretly just a Google Sheet with anxiety.",
-  "A startup that helps founders figure out if they need therapy or a pivot.",
-  "A Chrome extension that tells you whether an email needed to be a meeting.",
   "An AI that turns LinkedIn humblebrags into plain English.",
 ] as const;
 
